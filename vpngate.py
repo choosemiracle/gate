@@ -624,7 +624,9 @@ def check_one(
     )
     url = worker_base + quote(f"{node.host}:{node.port}", safe="")
     try:
-        response = session.get(url, timeout=timeout)
+        check_token = os.environ.get("CHECK_TOKEN", "").strip()
+        headers = {"Authorization": f"Bearer {check_token}"} if check_token else {}
+        response = session.get(url, headers=headers, timeout=timeout)
         if response.status_code != 200:
             result["error"] = f"HTTP {response.status_code}"
             result["worker_error"] = True
