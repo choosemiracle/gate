@@ -1,0 +1,3 @@
+# Candidate Cloudflare IPv4 addresses. Each entry is tested with TLS/SNI against the target hostname.
+104.17.99.242
+104.17.212.202
