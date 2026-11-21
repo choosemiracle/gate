@@ -73,6 +73,19 @@ jobs:
           MIN_SUCCESS_RATIO: '0'
         run: python vpngate.py
 
+      - name: Test v2rayN subscription generator and candidate IP checker
+        run: |
+          python -m unittest discover -s v2rayn -p 'test_*.py' -v
+          node --test v2rayn/test_subscription-worker.mjs
+
+      - name: Verify Cloudflare IP candidates for v2rayN
+        run: |
+          python v2rayn/check_ips.py \
+            --host alpha-beta-gamma.innerlightmessage.dpdns.org \
+            --candidates v2rayn/candidates.txt \
+            --output public/v2rayn-ips.json \
+            --max-ips 10
+
       - name: Ensure GitHub Pages is enabled
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
