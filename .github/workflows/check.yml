@@ -108,7 +108,7 @@ jobs:
           chmod 755 /tmp/choosemiracle-xray/xray
           python v2rayn/v2_scan.py \
             --xray /tmp/choosemiracle-xray/xray \
-            --candidates 200 --shortlist 55 \
+            --candidates 200 --shortlist 80 --region-candidates 60 \
             --output public/v2rayn-ips-v2.json
 
       - name: Ensure GitHub Pages is enabled
