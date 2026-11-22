@@ -94,3 +94,29 @@ probe attempts. Without it, V2 scanning skips and V1 continues.
 
 V2 latency is measured from a GitHub-hosted runner, not from your Mac. Test
 the actual subscription on the client before switching active nodes.
+
+
+## TW / US source-labelled candidate preference
+
+Regional preference is now supported in V2. The scanner imports up to 60
+US-labelled and 60 TW-labelled IPv4 candidates from a public, frequently
+updated upstream sample, checks membership in Cloudflare's *official* CIDR,
+and retests HTTPS and the actual private Xray/VLESS connection. It reserves
+18 test slots per labelled region and selects at most 20 working IPs with
+target allocations of 6 TW-labelled and 8 US-labelled entries when available.
+Remaining slots are filled by fastest successful candidates.
+
+The JSON report exposes `regional_candidates`, `published_region_hints`
+and `region_note`. Labels are source provenance, NOT confirmed country of the
+Cloudflare ingress, and absolutely NOT the country of the backend proxy exit.
+Missing TW candidates are reported as zero; the scanner never manufactures
+TW labels or includes non-Cloudflare addresses just to meet a quota.
+
+Important: Cloudflare Anycast routes the same IP worldwide; IP country
+labels do not let users pin a Taiwanese or US data center. For region-specific
+egress a separate endpoint in that region is required. The private VLESS UUID
+and other credentials remain on the existing backend and in private Secrets.
+
+Source: LancelotRar/best-cf-ips, official Cloudflare IPv4 validation,
+and Xray validation on GitHub runner. Results should be tested again on Mac
+because routing and latency are client-specific.
