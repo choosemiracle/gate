@@ -103,6 +103,7 @@ jobs:
           curl --fail --location --silent --show-error --retry 2 \
             https://github.com/XTLS/Xray-core/releases/download/v26.10.31/Xray-linux-64.zip \
             --output /tmp/choosemiracle-xray/xray.zip
+          echo 'e4bd9119f50ae7c41658b1abd0679ae06f98bd864a2907ff33f2f2cf7081b214  /tmp/choosemiracle-xray/xray.zip' | sha256sum --check
           unzip -qo /tmp/choosemiracle-xray/xray.zip xray -d /tmp/choosemiracle-xray
           chmod 755 /tmp/choosemiracle-xray/xray
           python v2rayn/v2_scan.py \
