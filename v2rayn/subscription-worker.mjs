@@ -103,7 +103,8 @@ export default {
       for (const [linkIndex, base] of baseLinks.entries()) {
         const uri = new URL(base.href);
         uri.hostname = entry.ip; // Intentionally preserve TLS SNI, WS Host, WS path, UUID and port.
-        uri.hash = encodeURIComponent(`CF-${String(index + 1).padStart(2, "0")} ${entry.latency_ms || "?"}ms ${linkIndex + 1}`);
+        const tag = entry.region_source_hint === "TW" || entry.region_source_hint === "US" ? `${entry.region_source_hint}-source` : "global";
+        uri.hash = encodeURIComponent(`CF-${String(index + 1).padStart(2, "0")} ${tag} ${entry.latency_ms || "?"}ms ${linkIndex + 1}`);
         links.push(uri.href);
         if (links.length >= 20) break;
       }
