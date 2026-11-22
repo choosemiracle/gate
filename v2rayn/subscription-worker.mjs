@@ -1,5 +1,6 @@
 // v2rayN subscription gateway. VLESS credentials live only in Worker Secrets.
 const SOURCE_URL = "https://choosemiracle.github.io/gate/v2rayn-ips.json";
+const V2_SOURCE_URL = "https://choosemiracle.github.io/gate/v2rayn-ips-v2.json";
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
@@ -68,16 +69,35 @@ export default {
     } catch {
       return json({ error: "VLESS_LINKS is missing or invalid; add a VLESS TLS WS share link using wrangler secret put" }, 503);
     }
-    let entries;
+    // Only v2rayn-ips-v2.json with an authenticated Xray request can claim
+    // end-to-end VLESS verification. Legacy V1 entries remain TLS-only fallback.
+    let entries = [];
+    let validationLevel = "https-only";
     try {
-      const response = await fetch(SOURCE_URL, { cf: { cacheTtl: 300, cacheEverything: true } });
-      if (!response.ok) throw new Error("ip source unavailable");
-      const data = await response.json();
-      entries = Array.isArray(data.ips) ? data.ips.filter(e => e && isIPv4(e.ip) && e.verified === true).slice(0, 20) : [];
-      if (!entries.length) throw new Error("no verified candidates");
-    } catch {
-      return json({ error: "no current verified Cloudflare IP candidates" }, 503);
+      const response = await fetch(V2_SOURCE_URL, { cf: { cacheTtl: 300, cacheEverything: true } });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.version === 2 && Array.isArray(data.ips)) {
+          entries = data.ips.filter(e => e && isIPv4(e.ip) &&
+            e.verified === true && e.vless_verified === true &&
+            Number.isFinite(e.latency_ms)).sort((a, b) => a.latency_ms - b.latency_ms)
+            .slice(0, 20);
+          if (entries.length) validationLevel = "xray-vless-end-to-end";
+        }
+      }
+    } catch { /* V2 unavailable: continue with safe legacy fallback */ }
+    if (!entries.length) {
+      try {
+        const response = await fetch(SOURCE_URL, { cf: { cacheTtl: 300, cacheEverything: true } });
+        if (!response.ok) throw new Error("legacy IP source unavailable");
+        const data = await response.json();
+        entries = Array.isArray(data.ips) ?
+          data.ips.filter(e => e && isIPv4(e.ip) && e.verified === true)
+            .sort((a, b) => (a.latency_ms || Infinity) - (b.latency_ms || Infinity))
+            .slice(0, 20) : [];
+      } catch { /* no verified sources */ }
     }
+    if (!entries.length) return json({ error: "no current verified Cloudflare IP candidates" }, 503);
     const links = [];
     for (const [index, entry] of entries.entries()) {
       for (const [linkIndex, base] of baseLinks.entries()) {
@@ -85,7 +105,9 @@ export default {
         uri.hostname = entry.ip; // Intentionally preserve TLS SNI, WS Host, WS path, UUID and port.
         uri.hash = encodeURIComponent(`CF-${String(index + 1).padStart(2, "0")} ${entry.latency_ms || "?"}ms ${linkIndex + 1}`);
         links.push(uri.href);
+        if (links.length >= 20) break;
       }
+      if (links.length >= 20) break;
     }
     return new Response(encodeBase64(links.join("\n") + "\n"), {
       status: 200,
@@ -93,6 +115,7 @@ export default {
         "content-type": "text/plain; charset=utf-8",
         "cache-control": "private, no-store",
         "x-content-type-options": "nosniff",
+        "x-validation-level": validationLevel,
       }
     });
   }
