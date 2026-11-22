@@ -63,3 +63,34 @@ The URL token is a credential: do not publish it in screenshots, issue logs, or 
 python3 -m unittest discover -s v2rayn -p 'test_*.py' -v
 node --test v2rayn/test_subscription-worker.mjs
 ```
+
+
+## Cloudflare V2: verified subscription
+
+This feature adds a second-stage VLESS proxy test to the existing SSTP/V1
+30-minute GitHub Actions workflow without modifying SSTP nodes or the
+alpha-beta-gamma service.
+
+- Generate 200 candidate IPv4 addresses from the official Cloudflare
+  https://www.cloudflare.com/ips-v4/ ranges, rotating every 30 minutes.
+- Run parallel HTTPS/TLS preflight, then test the best 55 candidates through
+  a full Xray VLESS + TLS + WebSocket outbound and SOCKS5 HTTP request.
+- Publish only actual successful VLESS IPs to
+  https://choosemiracle.github.io/gate/v2rayn-ips-v2.json,
+  ordered by end-to-end latency, with a 20-IP maximum.
+- Public reports hold IPs/latencies only, never UUIDs or share links.
+- The subscription Worker prefers V2 end-to-end verified IPs; if V2 has not
+  succeeded, it retains V1 HTTPS-only fallback. Response header
+  x-validation-level distinguishes xray-vless-end-to-end from https-only.
+  HTTPS-only entries are never represented as real VLESS-verified nodes.
+- The subscription output is capped at 20 total VLESS links, regardless of
+  the number of private templates.
+
+One-time activation: save a known-working VLESS+TLS+WebSocket URI as GitHub
+Actions encrypted secret VLESS_PROBE_URI in choosemiracle/gate. Do not commit
+this secret or echo it to logs. Cloudflare Worker still holds the separate
+VLESS_LINKS secret; the GitHub secret is used exclusively for authenticated
+probe attempts. Without it, V2 scanning skips and V1 continues.
+
+V2 latency is measured from a GitHub-hosted runner, not from your Mac. Test
+the actual subscription on the client before switching active nodes.
