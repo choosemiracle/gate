@@ -83,4 +83,27 @@ class ScannerTests(unittest.TestCase):
         self.assertIn("--proxy",cmd)
         self.assertIn("socks5h://", " ".join(cmd))
 
+
+    def test_region_hints_only_cloudflare_with_valid_443(self):
+        samples = """104.17.99.242:443#US 🇺🇸
+104.17.212.202:443#TW 🇹🇼
+203.69.11.79:443#TW 🇹🇼
+104.17.99.243:8443#US 🇺🇸
+104.17.99.242:443#TW 🇹🇼
+"""
+        hints=v2_scan.get_region_hints(ranges_text=RANGES,source_text=samples)
+        self.assertEqual(hints["US"],["104.17.99.242"])
+        self.assertEqual(hints["TW"],["104.17.212.202"])
+
+    def test_verified_region_priority_and_backfill(self):
+        entries=[{"ip":f"104.17.0.{n}","latency_ms":n*10,"https_ms":n*5}
+                 for n in range(1,10)]
+        entries[5]["region_source_hint"]="TW"
+        entries[6]["region_source_hint"]="US"
+        preferred=v2_scan.prefer_region_mix(entries,limit=5,tw_slots=1,us_slots=1)
+        self.assertEqual(preferred[0]["region_source_hint"],"TW")
+        self.assertEqual(preferred[1]["region_source_hint"],"US")
+        self.assertEqual(len(preferred),5)
+        self.assertEqual(len({e["ip"] for e in preferred}),5)
+
 if __name__=="__main__": unittest.main()
