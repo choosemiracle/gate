@@ -63,13 +63,13 @@ def get_candidates(limit=200, rotation=0, ranges_text=None):
     return chosen
 
 def tls_check(ip, host=TLS_TARGET, timeout=5):
-    cmd = ["curl", "-fsS", "--noproxy", "*", "--connect-timeout", str(min(3, timeout)),
+    cmd = ["curl", "-sS", "--noproxy", "*", "--connect-timeout", str(min(3, timeout)),
            "--max-time", str(timeout), "--resolve", f"{host}:443:{ip}",
            "--output", "/dev/null", "--write-out", "%{http_code} %{time_total}", f"https://{host}/"]
     try:
         run = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout+2, check=True)
         status, elapsed = run.stdout.strip().split()
-        if 200 <= int(status) < 400:
+        if 200 <= int(status) < 500 and int(status) not in (407, 429):
             return {"ip": ip, "https_ms": max(1, int(float(elapsed)*1000)),
                     "https_status": int(status)}
     except (OSError, ValueError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
