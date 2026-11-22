@@ -150,6 +150,28 @@ jobs:
         with:
           path: public
 
+      - name: Wait for GitHub Pages artifact API consistency
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 15); do
+            count=$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
+              | python -c 'import sys,json; print(sum(a.get("name")=="github-pages" for a in json.load(sys.stdin).get("artifacts", [])))')
+            if [ "$count" -gt 0 ]; then
+              echo "GitHub Pages artifact visible to API"
+              break
+            fi
+            if [ "$attempt" -eq 15 ]; then
+              echo "::error::Pages artifact not visible after retries"
+              exit 1
+            fi
+            sleep 4
+          done
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
