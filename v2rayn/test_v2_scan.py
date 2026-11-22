@@ -62,4 +62,25 @@ class ScannerTests(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertNotIn("-f",run.call_args.args[0])
 
+
+    @patch("v2_scan.time.sleep")
+    @patch("v2_scan.subprocess.Popen")
+    @patch("v2_scan.subprocess.run")
+    def test_real_vless_result_requires_successful_proxied_http(self, run, popen, sleep):
+        proc=Mock()
+        proc.poll.return_value=None
+        popen.return_value=proc
+        c={"ip":"104.17.99.242","https_ms":100,"https_status":200}
+        template=v2_scan.parse_template(
+            "vless://11111111-1111-4111-8111-111111111111@edge.example:443?security=tls&type=ws&sni=origin.example&host=ws.example&path=%2F")
+        run.return_value=Mock(returncode=28,stdout="000 0.000")
+        self.assertIsNone(v2_scan.probe_vless(c,template))
+        run.return_value=Mock(returncode=0,stdout="200 0.425")
+        r=v2_scan.probe_vless(c,template)
+        self.assertTrue(r["vless_verified"])
+        self.assertEqual(r["latency_ms"],425)
+        cmd=run.call_args.args[0]
+        self.assertIn("--proxy",cmd)
+        self.assertIn("socks5h://", " ".join(cmd))
+
 if __name__=="__main__": unittest.main()
