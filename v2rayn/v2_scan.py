@@ -230,7 +230,27 @@ def scan(args):
         for item in executor.map(lambda ip: tls_check(ip, args.host, args.https_timeout), candidates):
             if item: tls.append(item)
     tls.sort(key=lambda x: (x["https_ms"], x["ip"]))
-    short = tls[:args.shortlist]
+    # Keep regional samples in the real VLESS test shortlist even if a nearby
+    # US-hosted GitHub runner measures a slightly higher HTTPS latency.
+    regional = [item for item in tls if item["ip"] in region_of]
+    selected_ip = set()
+    short = []
+    for label, quota in (("TW", 18), ("US", 18)):
+        for item in regional:
+            if quota <= 0:
+                break
+            if region_of[item["ip"]] != label or item["ip"] in selected_ip:
+                continue
+            short.append(item)
+            selected_ip.add(item["ip"])
+            quota -= 1
+    for item in tls:
+        if len(short) >= args.shortlist:
+            break
+        if item["ip"] not in selected_ip:
+            short.append(item)
+            selected_ip.add(item["ip"])
+
     verified = []
     with cf.ThreadPoolExecutor(max_workers=args.vless_workers) as executor:
         for item in executor.map(lambda c: probe_vless(c, template, args.xray, args.vless_timeout), short):
